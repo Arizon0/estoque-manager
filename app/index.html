@@ -1,0 +1,938 @@
+<title>Estoque Vivo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --ground:#f1f4f6; --surface:#ffffff; --surface-2:#e8eef0; --linha:#d6e0e4;
+    --texto:#15242c; --fraco:#5d7078; --marca:#0c5b6a; --marca-suave:#e0eef1;
+    --ok:#1b7a4f; --alerta:#9d5c05; --critico:#af2b23;
+    --ok-fundo:#e4f2ea; --alerta-fundo:#fbeeda; --critico-fundo:#fae6e4;
+    --sobre-marca:#ffffff;
+    --sombra:0 1px 2px rgba(16,36,44,.05), 0 10px 26px -16px rgba(16,36,44,.35);
+    --raio:12px;
+    --f-xs:.6875rem; --f-sm:.8125rem; --f-md:.9375rem; --f-lg:1.0625rem; --f-xl:1.3125rem; --f-2xl:1.75rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:#0c1418; --surface:#151f25; --surface-2:#1d2a31; --linha:#2a3a43;
+      --texto:#e3edf0; --fraco:#8fa5ae; --marca:#4dc3d4; --marca-suave:#10313a;
+      --ok:#54c08a; --alerta:#e0a24a; --critico:#f0786c;
+      --ok-fundo:#112d22; --alerta-fundo:#332612; --critico-fundo:#361d1b;
+      --sobre-marca:#08181d;
+      --sombra:0 1px 2px rgba(0,0,0,.4), 0 10px 26px -16px rgba(0,0,0,.8);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:#0c1418; --surface:#151f25; --surface-2:#1d2a31; --linha:#2a3a43;
+    --texto:#e3edf0; --fraco:#8fa5ae; --marca:#4dc3d4; --marca-suave:#10313a;
+    --ok:#54c08a; --alerta:#e0a24a; --critico:#f0786c;
+    --ok-fundo:#112d22; --alerta-fundo:#332612; --critico-fundo:#361d1b;
+    --sobre-marca:#08181d;
+    --sombra:0 1px 2px rgba(0,0,0,.4), 0 10px 26px -16px rgba(0,0,0,.8);
+  }
+
+  * { box-sizing:border-box; }
+  body {
+    background:var(--ground); color:var(--texto);
+    font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size:var(--f-md); line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3 { font-family:"Archivo", system-ui, sans-serif; font-weight:700; margin:0; text-wrap:balance; letter-spacing:-.01em; }
+  button, input, select, textarea { font:inherit; color:inherit; }
+  button { cursor:pointer; }
+  :focus-visible { outline:2px solid var(--marca); outline-offset:2px; border-radius:6px; }
+  .num { font-family:"IBM Plex Mono", ui-monospace, monospace; font-variant-numeric:tabular-nums; }
+
+  .envelope { max-width:760px; margin:0 auto; padding:0 16px 96px; }
+
+  /* ---------- topo ---------- */
+  .topo {
+    position:sticky; top:env(safe-area-inset-top, 0px); z-index:20;
+    background:var(--ground); border-bottom:1px solid var(--linha);
+    margin:0 -16px; padding:10px 16px;
+    display:flex; align-items:center; gap:12px;
+  }
+  .marca-nome { font-family:"Archivo",sans-serif; font-weight:700; font-size:var(--f-lg); letter-spacing:-.02em; display:block; }
+  .marca-sub { font-size:var(--f-xs); color:var(--fraco); letter-spacing:.06em; text-transform:uppercase; display:flex; align-items:center; gap:6px; }
+  .ponto { width:7px; height:7px; border-radius:50%; background:var(--fraco); flex:none; }
+  .ponto.vivo { background:var(--ok); }
+  .ponto.off { background:var(--critico); }
+
+  /* ---------- avisos ---------- */
+  .aviso {
+    margin-top:14px; padding:12px 14px; border-radius:var(--raio);
+    background:var(--marca-suave); border:1px solid color-mix(in srgb, var(--marca) 25%, transparent);
+    font-size:var(--f-sm); display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;
+  }
+  .aviso p { margin:0; flex:1 1 220px; }
+  .aviso strong { font-weight:600; }
+
+  /* ---------- resumo ---------- */
+  .resumo { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-top:14px; }
+  @media (min-width:560px) { .resumo { grid-template-columns:repeat(4,1fr); } }
+  .placa {
+    background:var(--surface); border:1px solid var(--linha); border-radius:var(--raio);
+    padding:12px 12px 11px; text-align:left; display:block; width:100%;
+  }
+  .placa-rotulo { font-size:var(--f-xs); text-transform:uppercase; letter-spacing:.07em; color:var(--fraco); }
+  .placa-valor { font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; font-size:var(--f-xl); font-weight:600; margin-top:3px; letter-spacing:-.02em; }
+  .placa-pe { font-size:var(--f-xs); color:var(--fraco); margin-top:1px; }
+  .placa.alarme { border-color:color-mix(in srgb, var(--alerta) 45%, var(--linha)); }
+  .placa.alarme .placa-valor { color:var(--alerta); }
+
+  /* ---------- busca + chips ---------- */
+  .busca { margin-top:14px; position:relative; }
+  .busca input {
+    width:100%; padding:11px 13px; border-radius:10px; background:var(--surface);
+    border:1px solid var(--linha); -webkit-appearance:none;
+  }
+  .busca input::placeholder { color:var(--fraco); }
+  .chips { display:flex; gap:7px; margin-top:10px; overflow-x:auto; padding-bottom:2px; scrollbar-width:none; }
+  .chips::-webkit-scrollbar { display:none; }
+  .chip {
+    flex:none; padding:6px 12px; border-radius:999px; border:1px solid var(--linha);
+    background:var(--surface); font-size:var(--f-sm); color:var(--fraco); white-space:nowrap;
+  }
+  .chip[aria-pressed="true"] { background:var(--marca); border-color:var(--marca); color:var(--sobre-marca); font-weight:500; }
+
+  /* ---------- lista ---------- */
+  .lista { list-style:none; margin:14px 0 0; padding:0; display:flex; flex-direction:column; gap:7px; }
+  .linha-item {
+    width:100%; text-align:left; background:var(--surface); border:1px solid var(--linha);
+    border-left-width:4px; border-radius:var(--raio); padding:11px 13px;
+    display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:12px;
+  }
+  .linha-item.ok { border-left-color:var(--ok); }
+  .linha-item.baixo { border-left-color:var(--alerta); }
+  .linha-item.zerado { border-left-color:var(--critico); }
+  .item-nome { font-weight:600; overflow-wrap:anywhere; }
+  .item-meta { font-size:var(--f-xs); color:var(--fraco); margin-top:2px; display:flex; flex-wrap:wrap; gap:4px 9px; }
+  .item-meta .sku { font-family:"IBM Plex Mono",monospace; }
+  .item-saldo { text-align:right; }
+  .saldo-valor { font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; font-size:var(--f-xl); font-weight:600; line-height:1.1; letter-spacing:-.02em; }
+  .linha-item.baixo .saldo-valor { color:var(--alerta); }
+  .linha-item.zerado .saldo-valor { color:var(--critico); }
+  .saldo-un { font-size:var(--f-xs); color:var(--fraco); }
+  .selo { display:inline-block; font-size:var(--f-xs); padding:1px 7px; border-radius:999px; font-weight:500; }
+  .selo.baixo { background:var(--alerta-fundo); color:var(--alerta); }
+  .selo.zerado { background:var(--critico-fundo); color:var(--critico); }
+  .selo.exemplo { background:var(--surface-2); color:var(--fraco); }
+
+  .vazio { text-align:center; padding:38px 16px; color:var(--fraco); font-size:var(--f-sm); }
+  .vazio h3 { font-size:var(--f-lg); color:var(--texto); margin-bottom:6px; }
+
+  /* ---------- movimentos ---------- */
+  .dia { margin-top:18px; }
+  .dia-titulo { font-size:var(--f-xs); text-transform:uppercase; letter-spacing:.07em; color:var(--fraco); margin-bottom:7px; }
+  .lanc { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:baseline;
+    background:var(--surface); border:1px solid var(--linha); border-radius:10px; padding:9px 12px; margin-bottom:6px; }
+  .lanc-nome { font-size:var(--f-sm); font-weight:500; overflow-wrap:anywhere; }
+  .lanc-obs { font-size:var(--f-xs); color:var(--fraco); }
+  .lanc-delta { font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; font-weight:600; white-space:nowrap; }
+  .lanc-delta.sai { color:var(--critico); }
+  .lanc-delta.entra { color:var(--ok); }
+  .lanc-saldo { font-size:var(--f-xs); color:var(--fraco); text-align:right; }
+
+  /* ---------- barra inferior ---------- */
+  .barra {
+    position:fixed; left:0; right:0; bottom:0; z-index:30;
+    background:color-mix(in srgb, var(--surface) 92%, transparent);
+    backdrop-filter:blur(10px); border-top:1px solid var(--linha);
+    padding:6px 12px calc(6px + env(safe-area-inset-bottom, 0px));
+    display:flex; gap:6px; justify-content:center;
+  }
+  .barra-btn {
+    flex:1 1 0; max-width:180px; background:none; border:0; border-radius:10px; padding:7px 4px;
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+    font-size:var(--f-xs); color:var(--fraco); letter-spacing:.02em;
+  }
+  .barra-btn[aria-current="true"] { color:var(--marca); font-weight:600; background:var(--marca-suave); }
+  .barra-btn svg { width:19px; height:19px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  .barra-btn.destaque { color:var(--marca); }
+
+  /* ---------- folha ---------- */
+  .folha-fundo {
+    position:fixed; inset:0; z-index:40; background:rgba(8,20,26,.5);
+    display:flex; align-items:flex-end; justify-content:center;
+  }
+  .folha {
+    background:var(--surface); width:100%; max-width:560px; max-height:88vh; overflow-y:auto;
+    border-radius:16px 16px 0 0; border:1px solid var(--linha); border-bottom:0;
+    padding:8px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+    box-shadow:var(--sombra); animation:sobe .22s ease-out;
+  }
+  @media (min-width:600px) { .folha-fundo { align-items:center; } .folha { border-radius:16px; border-bottom:1px solid var(--linha); padding-bottom:20px; } }
+  @keyframes sobe { from { transform:translateY(16px); opacity:.6; } to { transform:none; opacity:1; } }
+  @media (prefers-reduced-motion:reduce) { .folha { animation:none; } }
+  .puxador { width:36px; height:4px; border-radius:2px; background:var(--linha); margin:4px auto 12px; }
+  .folha h2 { font-size:var(--f-xl); letter-spacing:-.02em; overflow-wrap:anywhere; }
+  .folha-sub { font-size:var(--f-sm); color:var(--fraco); margin:3px 0 0; }
+
+  .ficha { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin:14px 0; }
+  .ficha div { background:var(--surface-2); border-radius:10px; padding:9px 11px; }
+  .ficha dt { font-size:var(--f-xs); color:var(--fraco); text-transform:uppercase; letter-spacing:.06em; }
+  .ficha dd { margin:2px 0 0; font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; font-weight:600; font-size:var(--f-lg); }
+
+  .campo { display:block; margin-top:12px; }
+  .campo span { display:block; font-size:var(--f-xs); text-transform:uppercase; letter-spacing:.06em; color:var(--fraco); margin-bottom:4px; }
+  .campo input, .campo select, .campo textarea {
+    width:100%; padding:10px 12px; border-radius:10px; background:var(--ground);
+    border:1px solid var(--linha); -webkit-appearance:none;
+  }
+  .dupla { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+  .acoes { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+  .btn {
+    flex:1 1 130px; padding:11px 14px; border-radius:10px; border:1px solid var(--linha);
+    background:var(--surface-2); font-weight:600; font-size:var(--f-sm); text-align:center;
+  }
+  .btn.principal { background:var(--marca); border-color:var(--marca); color:var(--sobre-marca); }
+  .btn.perigo { color:var(--critico); border-color:color-mix(in srgb, var(--critico) 35%, var(--linha)); background:var(--critico-fundo); }
+  .btn.discreto { background:none; }
+  .btn[disabled] { opacity:.5; cursor:not-allowed; }
+  .btn-largo { flex-basis:100%; }
+
+  .erro { color:var(--critico); font-size:var(--f-sm); margin-top:10px; min-height:1.2em; }
+  .rodape { margin-top:26px; padding-top:16px; border-top:1px solid var(--linha); display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between; font-size:var(--f-xs); color:var(--fraco); }
+  .link { background:none; border:0; color:var(--marca); font-weight:600; font-size:var(--f-xs); padding:4px 0; text-decoration:underline; text-underline-offset:3px; }
+
+  .torrada {
+    position:fixed; left:50%; transform:translateX(-50%); bottom:calc(76px + env(safe-area-inset-bottom, 0px));
+    z-index:50; background:var(--texto); color:var(--ground); padding:9px 16px; border-radius:999px;
+    font-size:var(--f-sm); font-weight:500; box-shadow:var(--sombra); max-width:calc(100% - 32px);
+  }
+</style>
+
+<div class="envelope">
+  <header class="topo">
+    <div style="flex:1; min-width:0;">
+      <span class="marca-nome">Estoque Vivo</span>
+      <span class="marca-sub"><i class="ponto" id="ponto"></i><span id="statusTexto">conectando</span></span>
+    </div>
+  </header>
+
+  <main>
+    <div class="aviso" id="aviso" hidden>
+      <p id="avisoTexto"></p>
+      <button class="btn" id="avisoBtn" hidden style="flex:0 0 auto;"></button>
+    </div>
+
+    <!-- PÁGINA ESTOQUE -->
+    <section id="pgEstoque">
+      <div class="resumo" id="resumo"></div>
+
+      <div class="busca">
+        <input id="busca" type="search" autocomplete="off" placeholder="Buscar por nome, código ou categoria">
+      </div>
+      <div class="chips" id="chips">
+        <button class="chip" id="chipTodos" data-filtro="todos" aria-pressed="true">Todos</button>
+        <button class="chip" data-filtro="baixo" aria-pressed="false">Estoque baixo</button>
+        <button class="chip" data-filtro="zerado" aria-pressed="false">Sem estoque</button>
+      </div>
+
+      <ul class="lista" id="lista"></ul>
+
+      <div class="rodape">
+        <span id="rodapeInfo">—</span>
+        <button class="link" id="btnExportar">Exportar estoque (CSV)</button>
+      </div>
+    </section>
+
+    <!-- PÁGINA MOVIMENTOS -->
+    <section id="pgMovimentos" hidden>
+      <div id="movimentos"></div>
+    </section>
+  </main>
+</div>
+
+<nav class="barra">
+  <button class="barra-btn" id="tabEstoque" aria-current="true">
+    <svg viewBox="0 0 24 24"><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/></svg>
+    Estoque
+  </button>
+  <button class="barra-btn" id="tabMovimentos">
+    <svg viewBox="0 0 24 24"><path d="M4 18V9M10 18V5M16 18v-6M4 21h16"/></svg>
+    Movimentos
+  </button>
+  <button class="barra-btn destaque" id="tabNovo">
+    <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+    Novo item
+  </button>
+</nav>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- utilidades ----------
+  var nf = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 });
+  var nfMoeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+
+  function n(v) { var x = Number(v); return isFinite(x) ? x : 0; }
+  function arred(v) { return Math.round(n(v) * 1000) / 1000; }
+  function numeroBR(txt) {
+    if (typeof txt === "number") return txt;
+    var limpo = String(txt || "").trim().replace(/\s/g, "").replace(/\./g, "").replace(",", ".");
+    var x = parseFloat(limpo);
+    return isFinite(x) ? x : NaN;
+  }
+  function esc(s) { return String(s == null ? "" : s); }
+  function elemento(tag, classe) { var e = document.createElement(tag); if (classe) e.className = classe; return e; }
+  function hoje() { return new Date().toISOString(); }
+
+  function dataLonga(dia) {
+    var p = String(dia).split("-");
+    var d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+    if (isNaN(d.getTime())) return dia;
+    var txt = d.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
+    var agora = new Date();
+    var chave = function (x) { return x.getFullYear() + "-" + x.getMonth() + "-" + x.getDate(); };
+    if (chave(d) === chave(agora)) return "Hoje · " + txt;
+    var ontem = new Date(agora.getTime() - 86400000);
+    if (chave(d) === chave(ontem)) return "Ontem · " + txt;
+    return txt;
+  }
+  function horaCurta(iso) {
+    var d = new Date(iso);
+    return isNaN(d.getTime()) ? "" : d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  }
+
+  // ---------- estado ----------
+  var db = null;
+  var podeEscrever = true;
+  var itens = [];
+  var diarios = [];
+  var filtro = "todos";
+  var busca = "";
+  var aba = "estoque";
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ---------- status ----------
+  function status(texto, modo) {
+    $("statusTexto").textContent = texto;
+    $("ponto").className = "ponto" + (modo ? " " + modo : "");
+  }
+  var torradaTimer = null;
+  function torrada(msg) {
+    var antiga = document.querySelector(".torrada");
+    if (antiga) antiga.remove();
+    var t = elemento("div", "torrada");
+    t.setAttribute("role", "status");
+    t.textContent = msg;
+    document.body.appendChild(t);
+    clearTimeout(torradaTimer);
+    torradaTimer = setTimeout(function () { t.remove(); }, 3200);
+  }
+  function aviso(texto, rotuloBotao, acao) {
+    $("avisoTexto").innerHTML = texto;
+    var b = $("avisoBtn");
+    if (rotuloBotao) {
+      b.hidden = false;
+      b.textContent = rotuloBotao;
+      b.onclick = acao;
+    } else { b.hidden = true; b.onclick = null; }
+    $("aviso").hidden = false;
+  }
+
+  // ---------- regras de estoque ----------
+  function situacao(it) {
+    var q = n(it.qtd), m = n(it.minimo);
+    if (q <= 0) return "zerado";
+    if (m > 0 && q <= m) return "baixo";
+    return "ok";
+  }
+  function rotuloSituacao(it) {
+    var s = situacao(it);
+    if (s === "zerado") return n(it.qtd) < 0 ? "Saldo negativo" : "Sem estoque";
+    if (s === "baixo") return "Abaixo do mínimo";
+    return "";
+  }
+
+  // ---------- render: resumo ----------
+  function renderResumo() {
+    var totalUnidades = 0, valor = 0, alertas = 0;
+    itens.forEach(function (it) {
+      totalUnidades += n(it.qtd);
+      valor += n(it.qtd) * n(it.custo);
+      var s = situacao(it);
+      if (s !== "ok") alertas++;
+    });
+
+    var placas = [
+      { rotulo: "Itens", valor: nf.format(itens.length), pe: "cadastrados", filtro: "todos" },
+      { rotulo: "Unidades", valor: nf.format(arred(totalUnidades)), pe: "em estoque" },
+      { rotulo: "Valor", valor: nfMoeda.format(valor), pe: "a preço de custo" },
+      { rotulo: "Alertas", valor: nf.format(alertas), pe: "baixo ou zerado", alarme: alertas > 0, filtro: "baixo" }
+    ];
+
+    var alvo = $("resumo");
+    alvo.innerHTML = "";
+    placas.forEach(function (p) {
+      var tag = p.filtro ? "button" : "div";
+      var el = elemento(tag, "placa" + (p.alarme ? " alarme" : ""));
+      if (p.filtro) {
+        el.type = "button";
+        el.onclick = function () { aplicarFiltro(p.filtro); irPara("estoque"); };
+      }
+      var r = elemento("div", "placa-rotulo"); r.textContent = p.rotulo;
+      var v = elemento("div", "placa-valor"); v.textContent = p.valor;
+      var pe = elemento("div", "placa-pe"); pe.textContent = p.pe;
+      el.appendChild(r); el.appendChild(v); el.appendChild(pe);
+      alvo.appendChild(el);
+    });
+  }
+
+  // ---------- render: lista ----------
+  function itensVisiveis() {
+    var termo = busca.trim().toLowerCase();
+    return itens.filter(function (it) {
+      var s = situacao(it);
+      if (filtro === "baixo" && s === "ok") return false;
+      if (filtro === "zerado" && s !== "zerado") return false;
+      if (!termo) return true;
+      return (esc(it.nome) + " " + esc(it.sku) + " " + esc(it.categoria)).toLowerCase().indexOf(termo) >= 0;
+    }).sort(function (a, b) {
+      var pa = situacao(a) === "ok" ? 1 : 0, pb = situacao(b) === "ok" ? 1 : 0;
+      if (pa !== pb) return pa - pb;
+      return esc(a.nome).localeCompare(esc(b.nome), "pt-BR");
+    });
+  }
+
+  function renderLista() {
+    var alvo = $("lista");
+    alvo.innerHTML = "";
+    var visiveis = itensVisiveis();
+
+    if (!visiveis.length) {
+      var vazio = elemento("li", "vazio");
+      var h = elemento("h3");
+      var p = elemento("p");
+      if (!itens.length) {
+        h.textContent = "Estoque ainda sem itens";
+        p.textContent = "Toque em “Novo item” para cadastrar o primeiro, ou me mande a planilha no chat que eu carrego tudo de uma vez.";
+      } else {
+        h.textContent = "Nada encontrado";
+        p.textContent = "Ajuste a busca ou troque o filtro acima.";
+      }
+      vazio.appendChild(h); vazio.appendChild(p);
+      alvo.appendChild(vazio);
+    }
+
+    visiveis.forEach(function (it) {
+      var li = elemento("li");
+      var b = elemento("button", "linha-item " + situacao(it));
+      b.type = "button";
+      b.onclick = function () { abrirItem(it.id); };
+
+      var esquerda = elemento("div");
+      var nome = elemento("div", "item-nome"); nome.textContent = esc(it.nome);
+      esquerda.appendChild(nome);
+
+      var meta = elemento("div", "item-meta");
+      if (it.sku) { var sk = elemento("span", "sku"); sk.textContent = esc(it.sku); meta.appendChild(sk); }
+      if (it.categoria) { var c = elemento("span"); c.textContent = esc(it.categoria); meta.appendChild(c); }
+      var rot = rotuloSituacao(it);
+      if (rot) { var sel = elemento("span", "selo " + situacao(it)); sel.textContent = rot; meta.appendChild(sel); }
+      if (it.exemplo) { var ex = elemento("span", "selo exemplo"); ex.textContent = "exemplo"; meta.appendChild(ex); }
+      if (meta.childNodes.length) esquerda.appendChild(meta);
+
+      var direita = elemento("div", "item-saldo");
+      var sv = elemento("div", "saldo-valor"); sv.textContent = nf.format(arred(n(it.qtd)));
+      var su = elemento("div", "saldo-un"); su.textContent = esc(it.unidade || "un");
+      direita.appendChild(sv); direita.appendChild(su);
+
+      b.appendChild(esquerda); b.appendChild(direita);
+      li.appendChild(b);
+      alvo.appendChild(li);
+    });
+
+    var baixos = itens.filter(function (it) { return situacao(it) !== "ok"; }).length;
+    $("rodapeInfo").textContent = visiveis.length + " de " + itens.length + " itens" + (baixos ? " · " + baixos + " precisando de reposição" : "");
+  }
+
+  // ---------- render: movimentos ----------
+  function renderMovimentos() {
+    var alvo = $("movimentos");
+    alvo.innerHTML = "";
+    var comDados = diarios.filter(function (d) { return (d.lancamentos || []).length; });
+
+    if (!comDados.length) {
+      var vazio = elemento("div", "vazio");
+      var h = elemento("h3"); h.textContent = "Nenhuma movimentação ainda";
+      var p = elemento("p"); p.textContent = "Toda venda, entrada ou correção de saldo aparece aqui, com data e saldo resultante.";
+      vazio.appendChild(h); vazio.appendChild(p);
+      alvo.appendChild(vazio);
+      return;
+    }
+
+    comDados.forEach(function (d) {
+      var bloco = elemento("section", "dia");
+      var t = elemento("div", "dia-titulo");
+      var saidas = 0, entradas = 0;
+      (d.lancamentos || []).forEach(function (l) { if (n(l.delta) < 0) saidas += -n(l.delta); else entradas += n(l.delta); });
+      t.textContent = dataLonga(d.dia) + " · " + (saidas ? "−" + nf.format(arred(saidas)) : "0") + " saída, +" + nf.format(arred(entradas)) + " entrada";
+      bloco.appendChild(t);
+
+      (d.lancamentos || []).slice().reverse().forEach(function (l) {
+        var linha = elemento("div", "lanc");
+        var esq = elemento("div");
+        var nome = elemento("div", "lanc-nome"); nome.textContent = esc(l.nome);
+        esq.appendChild(nome);
+        var partes = [];
+        if (l.tipo === "venda") partes.push("Venda");
+        else if (l.tipo === "entrada") partes.push("Entrada");
+        else partes.push("Correção de saldo");
+        if (l.origem === "relatorio") partes.push("relatório 48h");
+        if (l.obs) partes.push(esc(l.obs));
+        var h = horaCurta(l.em);
+        if (h) partes.push(h);
+        var obs = elemento("div", "lanc-obs"); obs.textContent = partes.join(" · ");
+        esq.appendChild(obs);
+
+        var dir = elemento("div");
+        var delta = elemento("div", "lanc-delta " + (n(l.delta) < 0 ? "sai" : "entra"));
+        delta.textContent = (n(l.delta) < 0 ? "−" : "+") + nf.format(Math.abs(arred(n(l.delta))));
+        var saldo = elemento("div", "lanc-saldo"); saldo.textContent = "saldo " + nf.format(arred(n(l.saldo)));
+        dir.appendChild(delta); dir.appendChild(saldo);
+
+        linha.appendChild(esq); linha.appendChild(dir);
+        bloco.appendChild(linha);
+      });
+
+      alvo.appendChild(bloco);
+    });
+  }
+
+  function renderTudo() {
+    renderResumo();
+    renderLista();
+    renderMovimentos();
+  }
+
+  // ---------- navegação ----------
+  function irPara(destino) {
+    aba = destino;
+    $("pgEstoque").hidden = destino !== "estoque";
+    $("pgMovimentos").hidden = destino !== "movimentos";
+    $("tabEstoque").setAttribute("aria-current", destino === "estoque" ? "true" : "false");
+    $("tabMovimentos").setAttribute("aria-current", destino === "movimentos" ? "true" : "false");
+    window.scrollTo(0, 0);
+  }
+  function aplicarFiltro(novo) {
+    filtro = novo;
+    Array.prototype.forEach.call(document.querySelectorAll("#chips .chip"), function (c) {
+      c.setAttribute("aria-pressed", c.dataset.filtro === novo ? "true" : "false");
+    });
+    renderLista();
+  }
+
+  // ---------- folha ----------
+  var folhaFundo = null;
+  function fecharFolha() {
+    if (folhaFundo) { folhaFundo.remove(); folhaFundo = null; }
+  }
+  function abrirFolha(montar) {
+    fecharFolha();
+    folhaFundo = elemento("div", "folha-fundo");
+    folhaFundo.addEventListener("click", function (e) { if (e.target === folhaFundo) fecharFolha(); });
+    var folha = elemento("div", "folha");
+    folha.setAttribute("role", "dialog");
+    folha.setAttribute("aria-modal", "true");
+    folha.appendChild(elemento("div", "puxador"));
+    montar(folha);
+    folhaFundo.appendChild(folha);
+    document.body.appendChild(folhaFundo);
+    var foco = folha.querySelector("input, select, button");
+    if (foco) foco.focus({ preventScroll: true });
+  }
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") fecharFolha(); });
+
+  function campo(rotulo, id, opcoes) {
+    opcoes = opcoes || {};
+    var l = elemento("label", "campo");
+    var s = elemento("span"); s.textContent = rotulo;
+    var input = elemento(opcoes.tag || "input");
+    input.id = id;
+    if (!opcoes.tag) {
+      input.type = opcoes.type || "text";
+      if (opcoes.decimal) { input.inputMode = "decimal"; }
+    }
+    if (opcoes.valor !== undefined && opcoes.valor !== null) input.value = opcoes.valor;
+    if (opcoes.placeholder) input.placeholder = opcoes.placeholder;
+    if (opcoes.autocomplete) input.autocomplete = opcoes.autocomplete;
+    l.appendChild(s); l.appendChild(input);
+    return l;
+  }
+
+  // ---------- escrita no banco ----------
+  function exigirBanco() {
+    if (!db) { torrada("Sem conexão com o banco de dados."); return false; }
+    if (!podeEscrever) { torrada("Esta visualização é somente leitura."); return false; }
+    return true;
+  }
+
+  function tratarErro(e) {
+    var codigo = e && e.code ? e.code : "";
+    if (codigo === "invalid_argument") {
+      podeEscrever = false;
+      torrada("Sem permissão para alterar os dados nesta visualização.");
+    } else if (codigo === "quota_exceeded") {
+      torrada("Limite de registros atingido. Me avise no chat para eu arquivar o histórico antigo.");
+    } else if (codigo === "resource_exhausted") {
+      torrada("Muitas operações seguidas. Espere alguns segundos e tente de novo.");
+    } else {
+      torrada("Não deu para salvar agora. Tente novamente.");
+    }
+    if (window.console) console.error(e);
+  }
+
+  async function gravarLancamento(reg) {
+    var dia = reg.em.slice(0, 10);
+    var ref = db.doc("movimentos/" + dia);
+    var snap = await ref.get();
+    var atuais = snap.exists && Array.isArray(snap.data().lancamentos) ? snap.data().lancamentos.slice() : [];
+    atuais.push(reg);
+    await ref.set({ dia: dia, lancamentos: atuais, atualizadoEm: reg.em });
+  }
+
+  async function lancar(item, tipo, valor, obs) {
+    var antes = n(item.qtd);
+    var depois;
+    if (tipo === "venda") depois = antes - valor;
+    else if (tipo === "entrada") depois = antes + valor;
+    else depois = valor;
+    depois = arred(depois);
+    var delta = arred(depois - antes);
+    var em = hoje();
+
+    await db.doc("itens/" + item.id).update({ qtd: depois, atualizadoEm: em });
+    await gravarLancamento({
+      itemId: item.id, nome: esc(item.nome), sku: esc(item.sku || ""),
+      tipo: tipo, delta: delta, saldo: depois, obs: esc(obs || ""), em: em, origem: "app"
+    });
+    return depois;
+  }
+
+  // ---------- folha: detalhe do item ----------
+  function abrirItem(id) {
+    var item = itens.filter(function (x) { return x.id === id; })[0];
+    if (!item) return;
+
+    abrirFolha(function (folha) {
+      var h = elemento("h2"); h.textContent = esc(item.nome);
+      folha.appendChild(h);
+
+      var sub = elemento("p", "folha-sub");
+      var pedacos = [];
+      if (item.sku) pedacos.push("Código " + esc(item.sku));
+      if (item.categoria) pedacos.push(esc(item.categoria));
+      var rot = rotuloSituacao(item);
+      if (rot) pedacos.push(rot);
+      sub.textContent = pedacos.join(" · ") || "Sem código ou categoria";
+      folha.appendChild(sub);
+
+      var ficha = elemento("dl", "ficha");
+      function par(rotulo, valor) {
+        var d = elemento("div");
+        var dt = elemento("dt"); dt.textContent = rotulo;
+        var dd = elemento("dd"); dd.textContent = valor;
+        d.appendChild(dt); d.appendChild(dd); ficha.appendChild(d);
+      }
+      par("Saldo", nf.format(arred(n(item.qtd))) + " " + esc(item.unidade || "un"));
+      par("Mínimo", n(item.minimo) ? nf.format(n(item.minimo)) : "—");
+      par("Custo unit.", n(item.custo) ? nfMoeda.format(n(item.custo)) : "—");
+      par("Venda unit.", n(item.preco) ? nfMoeda.format(n(item.preco)) : "—");
+      folha.appendChild(ficha);
+
+      var rotulo = elemento("label", "campo");
+      var sp = elemento("span"); sp.textContent = "Quantidade";
+      var inp = elemento("input");
+      inp.id = "qtdMov"; inp.type = "text"; inp.inputMode = "decimal"; inp.placeholder = "0";
+      rotulo.appendChild(sp); rotulo.appendChild(inp);
+      folha.appendChild(rotulo);
+
+      folha.appendChild(campo("Observação (opcional)", "obsMov", { placeholder: "ex.: venda balcão, nota 1234" }));
+
+      var erro = elemento("p", "erro"); erro.id = "erroMov";
+      folha.appendChild(erro);
+
+      var acoes = elemento("div", "acoes");
+      function botao(texto, classe, tipo) {
+        var b = elemento("button", "btn " + classe);
+        b.type = "button";
+        b.textContent = texto;
+        b.onclick = async function () {
+          if (!exigirBanco()) return;
+          var valor = numeroBR($("qtdMov").value);
+          if (isNaN(valor)) { erro.textContent = "Informe a quantidade."; return; }
+          if (tipo !== "ajuste" && valor <= 0) { erro.textContent = "A quantidade precisa ser maior que zero."; return; }
+          erro.textContent = "";
+          Array.prototype.forEach.call(acoes.querySelectorAll("button"), function (x) { x.disabled = true; });
+          try {
+            var saldo = await lancar(item, tipo, valor, $("obsMov").value);
+            fecharFolha();
+            var verbo = tipo === "venda" ? "Baixa registrada" : tipo === "entrada" ? "Entrada registrada" : "Saldo corrigido";
+            torrada(verbo + " · " + esc(item.nome) + ": " + nf.format(saldo) + " " + esc(item.unidade || "un"));
+          } catch (e) {
+            Array.prototype.forEach.call(acoes.querySelectorAll("button"), function (x) { x.disabled = false; });
+            tratarErro(e);
+          }
+        };
+        return b;
+      }
+      acoes.appendChild(botao("Registrar venda", "principal", "venda"));
+      acoes.appendChild(botao("Entrada", "", "entrada"));
+      acoes.appendChild(botao("Corrigir saldo", "", "ajuste"));
+      folha.appendChild(acoes);
+
+      var extras = elemento("div", "acoes");
+      var editar = elemento("button", "btn discreto");
+      editar.type = "button"; editar.textContent = "Editar cadastro";
+      editar.onclick = function () { abrirFormulario(item); };
+      extras.appendChild(editar);
+
+      var excluir = elemento("button", "btn perigo");
+      excluir.type = "button"; excluir.textContent = "Excluir item";
+      excluir.onclick = async function () {
+        if (!exigirBanco()) return;
+        if (!window.confirm("Excluir “" + esc(item.nome) + "” do estoque? O histórico de movimentos continua guardado.")) return;
+        try {
+          await db.doc("itens/" + item.id).delete();
+          fecharFolha();
+          torrada("Item excluído.");
+        } catch (e) { tratarErro(e); }
+      };
+      extras.appendChild(excluir);
+      folha.appendChild(extras);
+    });
+  }
+
+  // ---------- folha: cadastro ----------
+  function abrirFormulario(item) {
+    var edicao = !!item;
+    abrirFolha(function (folha) {
+      var h = elemento("h2"); h.textContent = edicao ? "Editar item" : "Novo item";
+      folha.appendChild(h);
+
+      folha.appendChild(campo("Nome do produto", "fNome", { valor: edicao ? item.nome : "", placeholder: "ex.: Caixa de parafuso 4mm" }));
+
+      var d1 = elemento("div", "dupla");
+      d1.appendChild(campo("Código / SKU", "fSku", { valor: edicao ? item.sku || "" : "", placeholder: "opcional" }));
+      d1.appendChild(campo("Categoria", "fCategoria", { valor: edicao ? item.categoria || "" : "", placeholder: "opcional" }));
+      folha.appendChild(d1);
+
+      var d2 = elemento("div", "dupla");
+      d2.appendChild(campo(edicao ? "Saldo atual" : "Saldo inicial", "fQtd", { valor: edicao ? nf.format(n(item.qtd)) : "", decimal: true, placeholder: "0" }));
+      d2.appendChild(campo("Unidade", "fUnidade", { valor: edicao ? item.unidade || "un" : "un", placeholder: "un, kg, cx" }));
+      folha.appendChild(d2);
+
+      var d3 = elemento("div", "dupla");
+      d3.appendChild(campo("Estoque mínimo", "fMinimo", { valor: edicao && n(item.minimo) ? nf.format(n(item.minimo)) : "", decimal: true, placeholder: "0" }));
+      d3.appendChild(campo("Custo unitário (R$)", "fCusto", { valor: edicao && n(item.custo) ? nf.format(n(item.custo)) : "", decimal: true, placeholder: "0,00" }));
+      folha.appendChild(d3);
+
+      folha.appendChild(campo("Preço de venda (R$)", "fPreco", { valor: edicao && n(item.preco) ? nf.format(n(item.preco)) : "", decimal: true, placeholder: "0,00" }));
+
+      var erro = elemento("p", "erro");
+      folha.appendChild(erro);
+
+      var acoes = elemento("div", "acoes");
+      var salvar = elemento("button", "btn principal");
+      salvar.type = "button"; salvar.textContent = edicao ? "Salvar alterações" : "Cadastrar item";
+      salvar.onclick = async function () {
+        if (!exigirBanco()) return;
+        var nome = $("fNome").value.trim();
+        if (!nome) { erro.textContent = "O nome do produto é obrigatório."; return; }
+        var qtd = numeroBR($("fQtd").value);
+        if (isNaN(qtd)) qtd = 0;
+        var dados = {
+          nome: nome,
+          sku: $("fSku").value.trim(),
+          categoria: $("fCategoria").value.trim(),
+          unidade: $("fUnidade").value.trim() || "un",
+          minimo: isNaN(numeroBR($("fMinimo").value)) ? 0 : arred(numeroBR($("fMinimo").value)),
+          custo: isNaN(numeroBR($("fCusto").value)) ? 0 : arred(numeroBR($("fCusto").value)),
+          preco: isNaN(numeroBR($("fPreco").value)) ? 0 : arred(numeroBR($("fPreco").value)),
+          atualizadoEm: hoje()
+        };
+        erro.textContent = "";
+        salvar.disabled = true;
+        try {
+          if (edicao) {
+            var antes = n(item.qtd);
+            var depois = arred(qtd);
+            dados.qtd = depois;
+            dados.exemplo = !!item.exemplo;
+            await db.doc("itens/" + item.id).set(Object.assign({}, item.bruto || {}, dados));
+            if (depois !== antes) {
+              await gravarLancamento({
+                itemId: item.id, nome: nome, sku: dados.sku, tipo: "ajuste",
+                delta: arred(depois - antes), saldo: depois, obs: "Correção pelo cadastro",
+                em: dados.atualizadoEm, origem: "app"
+              });
+            }
+            fecharFolha();
+            torrada("Cadastro atualizado.");
+          } else {
+            dados.qtd = arred(qtd);
+            dados.criadoEm = dados.atualizadoEm;
+            var ref = db.collection("itens").doc();
+            await ref.set(dados);
+            if (dados.qtd !== 0) {
+              await gravarLancamento({
+                itemId: ref.id, nome: nome, sku: dados.sku, tipo: "ajuste",
+                delta: dados.qtd, saldo: dados.qtd, obs: "Saldo inicial",
+                em: dados.atualizadoEm, origem: "app"
+              });
+            }
+            fecharFolha();
+            torrada("Item cadastrado.");
+          }
+        } catch (e) {
+          salvar.disabled = false;
+          tratarErro(e);
+        }
+      };
+      var cancelar = elemento("button", "btn discreto");
+      cancelar.type = "button"; cancelar.textContent = "Cancelar";
+      cancelar.onclick = fecharFolha;
+      acoes.appendChild(salvar); acoes.appendChild(cancelar);
+      folha.appendChild(acoes);
+    });
+  }
+
+  // ---------- exportar ----------
+  function csvEstoque() {
+    var cab = ["Nome", "Codigo", "Categoria", "Unidade", "Quantidade", "Minimo", "Custo", "Preco", "Valor em custo", "Atualizado em"];
+    var linhas = [cab.join(";")];
+    itensVisiveis().forEach(function (it) {
+      var campos = [
+        esc(it.nome), esc(it.sku || ""), esc(it.categoria || ""), esc(it.unidade || "un"),
+        String(arred(n(it.qtd))).replace(".", ","),
+        String(arred(n(it.minimo))).replace(".", ","),
+        String(arred(n(it.custo))).replace(".", ","),
+        String(arred(n(it.preco))).replace(".", ","),
+        String(arred(n(it.qtd) * n(it.custo))).replace(".", ","),
+        esc(it.atualizadoEm || "")
+      ].map(function (v) { return '"' + String(v).replace(/"/g, '""') + '"'; });
+      linhas.push(campos.join(";"));
+    });
+    return "﻿" + linhas.join("\r\n");
+  }
+
+  async function exportar() {
+    if (!itens.length) { torrada("Não há itens para exportar."); return; }
+    var downloads = await window.claude.use("downloads");
+    if (!downloads) { torrada("Exportação indisponível nesta visualização."); return; }
+    try {
+      await downloads.save({ filename: "estoque-" + hoje().slice(0, 10) + ".csv", data: csvEstoque() });
+      torrada("Arquivo gerado.");
+    } catch (e) {
+      if (e && e.code === "declined") return;
+      torrada("Não foi possível gerar o arquivo.");
+    }
+  }
+
+  // ---------- limpar exemplos ----------
+  async function limparExemplos() {
+    if (!exigirBanco()) return;
+    var alvos = itens.filter(function (it) { return it.exemplo; });
+    if (!alvos.length) return;
+    if (!window.confirm("Remover os " + alvos.length + " itens de exemplo e o histórico deles?")) return;
+    var ids = {};
+    alvos.forEach(function (it) { ids[it.id] = true; });
+    try {
+      for (var i = 0; i < alvos.length; i++) {
+        await db.doc("itens/" + alvos[i].id).delete();
+      }
+      for (var j = 0; j < diarios.length; j++) {
+        var d = diarios[j];
+        var restantes = (d.lancamentos || []).filter(function (l) { return !ids[l.itemId]; });
+        if (restantes.length === (d.lancamentos || []).length) continue;
+        if (restantes.length) await db.doc("movimentos/" + d.dia).set({ dia: d.dia, lancamentos: restantes, atualizadoEm: hoje() });
+        else await db.doc("movimentos/" + d.dia).delete();
+      }
+      torrada("Exemplos removidos. O estoque está limpo.");
+    } catch (e) { tratarErro(e); }
+  }
+
+  function revisarAviso() {
+    var temExemplo = itens.some(function (it) { return it.exemplo; });
+    if (temExemplo) {
+      aviso("<strong>Dados de exemplo.</strong> São produtos fictícios só para você testar. Me mande a planilha no chat que eu substituo pelo estoque real.",
+        "Limpar exemplos", limparExemplos);
+    } else {
+      $("aviso").hidden = true;
+    }
+  }
+
+  // ---------- eventos de interface ----------
+  $("tabEstoque").onclick = function () { irPara("estoque"); };
+  $("tabMovimentos").onclick = function () { irPara("movimentos"); };
+  $("tabNovo").onclick = function () { abrirFormulario(null); };
+  $("btnExportar").onclick = exportar;
+  Array.prototype.forEach.call(document.querySelectorAll("#chips .chip"), function (c) {
+    c.onclick = function () { aplicarFiltro(c.dataset.filtro); };
+  });
+  var buscaTimer = null;
+  $("busca").oninput = function (e) {
+    var v = e.target.value;
+    clearTimeout(buscaTimer);
+    buscaTimer = setTimeout(function () { busca = v; renderLista(); }, 120);
+  };
+
+  renderTudo();
+
+  // ---------- conexão ----------
+  (async function conectar() {
+    var loja = null;
+    try { loja = await window.claude.use("db"); } catch (e) { loja = null; }
+    if (!loja) {
+      status("sem conexão", "off");
+      aviso("<strong>Não foi possível carregar o estoque nesta visualização.</strong> Abra o link do app pelo aplicativo ou site do Claude, com sua conta conectada.");
+      return;
+    }
+    db = loja;
+    status("sincronizado", "vivo");
+
+    loja.collection("itens").onSnapshot(function (snap) {
+      itens = snap.docs.map(function (d) {
+        var dados = d.data() || {};
+        return {
+          id: d.id, bruto: dados,
+          nome: dados.nome, sku: dados.sku, categoria: dados.categoria,
+          unidade: dados.unidade, qtd: dados.qtd, minimo: dados.minimo,
+          custo: dados.custo, preco: dados.preco, exemplo: dados.exemplo,
+          atualizadoEm: dados.atualizadoEm
+        };
+      });
+      renderResumo(); renderLista(); revisarAviso();
+      status(snap.metadata.fromCache ? "carregando" : "sincronizado", snap.metadata.fromCache ? "" : "vivo");
+    }, function (e) {
+      status("sem conexão", "off");
+      if (window.console) console.error(e);
+    });
+
+    loja.collection("movimentos").orderBy("dia", "desc").limit(60).onSnapshot(function (snap) {
+      diarios = snap.docs.map(function (d) {
+        var dados = d.data() || {};
+        return { dia: dados.dia || d.id, lancamentos: Array.isArray(dados.lancamentos) ? dados.lancamentos : [] };
+      });
+      renderMovimentos();
+    }, function (e) { if (window.console) console.error(e); });
+
+    var quem = await window.claude.use("user");
+    if (quem) {
+      var pode = await quem.can("data.write");
+      if (pode === false) {
+        podeEscrever = false;
+        $("tabNovo").disabled = true;
+        status("somente leitura", "");
+      }
+    }
+  })();
+})();
+</script>
