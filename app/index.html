@@ -364,7 +364,7 @@
     var placas = [
       { rotulo: "Itens", valor: nf.format(itens.length), pe: "cadastrados", filtro: "todos" },
       { rotulo: "Unidades", valor: nf.format(arred(totalUnidades)), pe: "em estoque" },
-      { rotulo: "Valor", valor: nfMoeda.format(valor), pe: "a preço de custo" },
+      { rotulo: "Valor", valor: valor > 0 ? nfMoeda.format(valor) : "—", pe: valor > 0 ? "a preço de custo" : "sem custo cadastrado" },
       { rotulo: "Alertas", valor: nf.format(alertas), pe: "baixo ou zerado", alarme: alertas > 0, filtro: "baixo" }
     ];
 
@@ -484,6 +484,7 @@
         var partes = [];
         if (l.tipo === "venda") partes.push("Venda");
         else if (l.tipo === "entrada") partes.push("Entrada");
+        else if (l.tipo === "transferencia") partes.push("Transferência");
         else partes.push("Correção de saldo");
         if (l.origem === "relatorio") partes.push("relatório 48h");
         if (l.obs) partes.push(esc(l.obs));
@@ -601,7 +602,7 @@
   async function lancar(item, tipo, valor, obs) {
     var antes = n(item.qtd);
     var depois;
-    if (tipo === "venda") depois = antes - valor;
+    if (tipo === "venda" || tipo === "transferencia") depois = antes - valor;
     else if (tipo === "entrada") depois = antes + valor;
     else depois = valor;
     depois = arred(depois);
@@ -674,7 +675,7 @@
           try {
             var saldo = await lancar(item, tipo, valor, $("obsMov").value);
             fecharFolha();
-            var verbo = tipo === "venda" ? "Baixa registrada" : tipo === "entrada" ? "Entrada registrada" : "Saldo corrigido";
+            var verbo = tipo === "venda" ? "Baixa registrada" : tipo === "entrada" ? "Entrada registrada" : tipo === "transferencia" ? "Transferência registrada" : "Saldo corrigido";
             torrada(verbo + " · " + esc(item.nome) + ": " + nf.format(saldo) + " " + esc(item.unidade || "un"));
           } catch (e) {
             Array.prototype.forEach.call(acoes.querySelectorAll("button"), function (x) { x.disabled = false; });
@@ -685,6 +686,7 @@
       }
       acoes.appendChild(botao("Registrar venda", "principal", "venda"));
       acoes.appendChild(botao("Entrada", "", "entrada"));
+      acoes.appendChild(botao("Envio ML Full", "", "transferencia"));
       acoes.appendChild(botao("Corrigir saldo", "", "ajuste"));
       folha.appendChild(acoes);
 
