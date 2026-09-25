@@ -29,16 +29,16 @@ from openpyxl.formatting.rule import CellIsRule
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
-# SKU do anúncio no ML -> id do item no app
+# SKU do anúncio no ML -> código do item no catálogo
 MAPA = {
-    "1942full": "ret-1942", "5702full": "ret-5702", "9203full": "ved-9203", "2400full": "ret-2400",
-    "1035jfull": "bronzina-1035j", "2317": "ret-2317", "3044full": "ret-3044", "2283full": "ret-2283",
-    "5266": "ret-5266", "7092": "anel-7092", "5245full": "ret-5245", "5772strada": "ret-5772",
-    "2371full": "ret-2371", "5159full": "ret-5159", "2539": "ret-2539", "8126full": "anel-8126-std",
-    "5338full": "ret-5338", "2178full": "ret-2178", "5502": "ret-5502", "2525full": "ret-2525",
-    "2544full": "ret-2544", "1135": "ret-1135", "2075": "ret-2075", "5601full": "ret-5601",
-    "5699full": "ret-5699", "2370full": "ret-2370", "7224STDfull": "jogo-7224-std", "5801full": "ret-5801",
-    "2373full": "ret-2373", "6631050full": "anel-6631-050", "2374full": "ret-2374",
+    "1942full": "1942", "5702full": "5702", "9203full": "9203", "2400full": "2400",
+    "1035jfull": "1035-J", "2317": "2317", "3044full": "3044", "2283full": "2283",
+    "5266": "5266", "7092": "7092", "5245full": "5245", "5772strada": "5772",
+    "2371full": "2371", "5159full": "5159", "2539": "2539", "8126full": "8126 STD",
+    "5338full": "5338", "2178full": "2178", "5502": "5502", "2525full": "2525",
+    "2544full": "2544", "1135": "1135", "2075": "2075", "5601full": "5601",
+    "5699full": "5699", "2370full": "2370", "7224STDfull": "7224 STD", "5801full": "5801",
+    "2373full": "2373", "6631050full": "6631 0,50", "2374full": "2374",
 }
 
 # colunas da aba "Resumo" do relatório do ML, conferidas pelo cabeçalho antes de ler
@@ -80,8 +80,10 @@ def ler_relatorio(caminho):
 
 def gerar(relatorio, dir_itens, saida, data_txt):
     linhas = ler_relatorio(relatorio)
-    cat = {os.path.basename(f)[:-5]: json.load(open(f, encoding="utf-8"))
-           for f in glob.glob(os.path.join(dir_itens, "*.json"))}
+    cat = {}
+    for f in glob.glob(os.path.join(dir_itens, "*.json")):
+        it = json.load(open(f, encoding="utf-8"))
+        cat[it["sku"]] = it
 
     reg = []
     for l in linhas:
@@ -389,6 +391,8 @@ def validar(caminho, cache):
     for nome, mapa in cache.items():
         for ref, esp in mapa.items():
             lido = wb[nome][ref].value
+            if esp == "" and lido in (None, ""):
+                continue
             if not (lido == esp or (isinstance(esp, (int, float)) and isinstance(lido, (int, float)) and abs(lido - esp) < 1e-6)):
                 erros.append("%s!%s esperado=%r lido=%r" % (nome, ref, esp, lido))
     for ws in wbf.worksheets:
