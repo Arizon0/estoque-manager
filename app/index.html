@@ -689,7 +689,10 @@
       par("Saldo", nf.format(arred(n(item.qtd))) + " " + esc(item.unidade || "un"));
       par("Mínimo", n(item.minimo) ? nf.format(n(item.minimo)) : "—");
       par("Custo unit.", n(item.custo) ? nfMoeda.format(n(item.custo)) : "—");
-      par("Venda unit.", n(item.preco) ? nfMoeda.format(n(item.preco)) : "—");
+      par("Preço no ML", n(item.precoML) ? nfMoeda.format(n(item.precoML)) : "—");
+      par("Você recebe", n(item.preco) ? nfMoeda.format(n(item.preco)) +
+        (n(item.precoML) ? " (" + Math.round(100 * n(item.preco) / n(item.precoML)) + "%)" : "") : "—");
+      par("Lucro por peça", n(item.preco) ? nfMoeda.format(n(item.preco) - n(item.custo)) : "—");
       folha.appendChild(ficha);
 
       var rotulo = elemento("label", "campo");
@@ -780,7 +783,10 @@
       d3.appendChild(campo("Custo unitário (R$)", "fCusto", { valor: edicao && n(item.custo) ? nf.format(n(item.custo)) : "", decimal: true, placeholder: "0,00" }));
       folha.appendChild(d3);
 
-      folha.appendChild(campo("Preço de venda (R$)", "fPreco", { valor: edicao && n(item.preco) ? nf.format(n(item.preco)) : "", decimal: true, placeholder: "0,00" }));
+      var d4 = elemento("div", "dupla");
+      d4.appendChild(campo("Preço no ML (R$)", "fPrecoML", { valor: edicao && n(item.precoML) ? nf.format(n(item.precoML)) : "", decimal: true, placeholder: "0,00" }));
+      d4.appendChild(campo("Você recebe, líquido (R$)", "fPreco", { valor: edicao && n(item.preco) ? nf.format(n(item.preco)) : "", decimal: true, placeholder: "0,00" }));
+      folha.appendChild(d4);
 
       var erro = elemento("p", "erro");
       folha.appendChild(erro);
@@ -802,6 +808,7 @@
           minimo: isNaN(numeroBR($("fMinimo").value)) ? 0 : arred(numeroBR($("fMinimo").value)),
           custo: isNaN(numeroBR($("fCusto").value)) ? 0 : arred(numeroBR($("fCusto").value)),
           preco: isNaN(numeroBR($("fPreco").value)) ? 0 : arred(numeroBR($("fPreco").value)),
+          precoML: isNaN(numeroBR($("fPrecoML").value)) ? 0 : arred(numeroBR($("fPrecoML").value)),
           atualizadoEm: hoje()
         };
         erro.textContent = "";
@@ -852,7 +859,7 @@
 
   // ---------- exportar ----------
   function csvEstoque() {
-    var cab = ["Nome", "Codigo", "Categoria", "Unidade", "Quantidade", "Minimo", "Custo", "Preco", "Valor em custo", "Atualizado em"];
+    var cab = ["Nome", "Codigo", "Categoria", "Unidade", "Quantidade", "Minimo", "Custo", "Preco no ML", "Voce recebe (liquido)", "Valor em custo", "Atualizado em"];
     var linhas = [cab.join(";")];
     itensVisiveis().forEach(function (it) {
       var campos = [
@@ -860,6 +867,7 @@
         String(arred(n(it.qtd))).replace(".", ","),
         String(arred(n(it.minimo))).replace(".", ","),
         String(arred(n(it.custo))).replace(".", ","),
+        String(arred(n(it.precoML))).replace(".", ","),
         String(arred(n(it.preco))).replace(".", ","),
         String(arred(n(it.qtd) * n(it.custo))).replace(".", ","),
         esc(it.atualizadoEm || "")
@@ -963,7 +971,7 @@
           id: d.id, bruto: dados,
           nome: dados.nome, sku: dados.sku, categoria: dados.categoria,
           unidade: dados.unidade, qtd: dados.qtd, minimo: dados.minimo,
-          custo: dados.custo, preco: dados.preco, exemplo: dados.exemplo,
+          custo: dados.custo, preco: dados.preco, precoML: dados.precoML, exemplo: dados.exemplo,
           atualizadoEm: dados.atualizadoEm
         };
       });
