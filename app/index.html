@@ -91,6 +91,13 @@
   .busca input::placeholder { color:var(--fraco); }
   .chips { display:flex; gap:7px; margin-top:10px; overflow-x:auto; padding-bottom:2px; scrollbar-width:none; }
   .chips::-webkit-scrollbar { display:none; }
+  .ordem { display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; margin-top:8px; }
+  .ordem-rotulo { font-size:var(--f-xs); text-transform:uppercase; letter-spacing:.07em; color:var(--fraco); }
+  .seg { display:inline-flex; border:1px solid var(--linha); border-radius:999px; overflow:hidden; background:var(--surface); }
+  .seg button { border:0; background:none; padding:6px 12px; font-size:var(--f-sm); color:var(--fraco); }
+  .seg button + button { border-left:1px solid var(--linha); }
+  .seg button[aria-pressed="true"] { background:var(--marca-suave); color:var(--marca); font-weight:600; }
+  .dir { border:1px solid var(--linha); background:var(--surface); border-radius:999px; padding:6px 12px; font-size:var(--f-sm); color:var(--texto); }
   .chip {
     flex:none; padding:6px 12px; border-radius:999px; border:1px solid var(--linha);
     background:var(--surface); font-size:var(--f-sm); color:var(--fraco); white-space:nowrap;
@@ -231,6 +238,15 @@
         <button class="chip" data-filtro="baixo" aria-pressed="false">Estoque baixo</button>
         <button class="chip" data-filtro="zerado" aria-pressed="false">Sem estoque</button>
       </div>
+      <div class="ordem">
+        <span class="ordem-rotulo">Ordenar</span>
+        <div class="seg" id="ordem" role="group" aria-label="Ordenar por">
+          <button type="button" data-ordem="situacao" aria-pressed="true">Situação</button>
+          <button type="button" data-ordem="sku" aria-pressed="false">SKU</button>
+          <button type="button" data-ordem="qtd" aria-pressed="false">Quantidade</button>
+        </div>
+        <button type="button" class="dir" id="btnDirecao" hidden>Menor → maior</button>
+      </div>
 
       <ul class="lista" id="lista"></ul>
 
@@ -306,6 +322,8 @@
   var diarios = [];
   var filtro = "todos";
   var busca = "";
+  var ordem = "situacao";
+  var direcao = "asc";
   var aba = "estoque";
 
   var $ = function (id) { return document.getElementById(id); };
@@ -395,10 +413,36 @@
       if (!termo) return true;
       return (esc(it.nome) + " " + esc(it.sku) + " " + esc(it.categoria)).toLowerCase().indexOf(termo) >= 0;
     }).sort(function (a, b) {
+      var sinal = direcao === "desc" ? -1 : 1;
+      if (ordem === "sku") return sinal * compararSku(a, b);
+      if (ordem === "qtd") {
+        var d = n(a.qtd) - n(b.qtd);
+        return d ? sinal * d : compararSku(a, b);
+      }
       var pa = situacao(a) === "ok" ? 1 : 0, pb = situacao(b) === "ok" ? 1 : 0;
       if (pa !== pb) return pa - pb;
       return esc(a.nome).localeCompare(esc(b.nome), "pt-BR");
     });
+  }
+
+  // "1035-J" < "1135" < "7224 0,50" < "7224 STD": compara os números como números
+  function compararSku(a, b) {
+    var sa = esc(a.sku) || esc(a.nome), sb = esc(b.sku) || esc(b.nome);
+    return sa.localeCompare(sb, "pt-BR", { numeric: true, sensitivity: "base" });
+  }
+
+  function aplicarOrdem(nova, novaDirecao) {
+    if (nova !== ordem) direcao = "asc";
+    ordem = nova;
+    if (novaDirecao) direcao = novaDirecao;
+    Array.prototype.forEach.call(document.querySelectorAll("#ordem button"), function (b) {
+      b.setAttribute("aria-pressed", b.dataset.ordem === ordem ? "true" : "false");
+    });
+    var btn = $("btnDirecao");
+    btn.hidden = ordem === "situacao";
+    btn.textContent = direcao === "desc" ? "Maior → menor" : "Menor → maior";
+    try { localStorage.setItem("estoque-ordem", JSON.stringify({ ordem: ordem, direcao: direcao })); } catch (e) {}
+    renderLista();
   }
 
   function renderLista() {
@@ -879,6 +923,18 @@
   Array.prototype.forEach.call(document.querySelectorAll("#chips .chip"), function (c) {
     c.onclick = function () { aplicarFiltro(c.dataset.filtro); };
   });
+  Array.prototype.forEach.call(document.querySelectorAll("#ordem button"), function (b) {
+    b.onclick = function () { aplicarOrdem(b.dataset.ordem); };
+  });
+  $("btnDirecao").onclick = function () { aplicarOrdem(ordem, direcao === "asc" ? "desc" : "asc"); };
+  try {
+    var ordemSalva = JSON.parse(localStorage.getItem("estoque-ordem") || "null");
+    if (ordemSalva && /^(situacao|sku|qtd)$/.test(ordemSalva.ordem)) {
+      ordem = ordemSalva.ordem;
+      direcao = ordemSalva.direcao === "desc" ? "desc" : "asc";
+    }
+  } catch (e) {}
+  aplicarOrdem(ordem, direcao);
   var buscaTimer = null;
   $("busca").oninput = function (e) {
     var v = e.target.value;
